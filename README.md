@@ -62,3 +62,7 @@ Cada palavra deve seguir este formato:
   example: "A empolgação inicial foi efêmera, mas deixou uma boa lembrança."
 }
 ```
+
+## Próximos passos
+
+Buscar palavras automaticamente, sem a necessidade de inserir palavras manualmente em arquivo word.js.
