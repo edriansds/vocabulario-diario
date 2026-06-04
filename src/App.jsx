@@ -1,25 +1,34 @@
 import { useEffect, useMemo, useState } from "react";
 import { words } from "./data/words";
 import { getDailyWord, isValidTime } from "./utils/dailyWord";
+import { hasRevealedDate, loadStreak, revealDailyWord, saveStreak } from "./utils/streak";
 
 const DEFAULT_UPDATE_HOUR = "08:00";
-const STORAGE_KEY = "vocabulario-diario:update-hour";
+const UPDATE_HOUR_STORAGE_KEY = "vocabulario-diario:update-hour";
+const STREAK_STORAGE_KEY = "vocabulario-diario:streak";
 
 export default function App() {
   const [updateHour, setUpdateHour] = useState(() => {
-    const storedValue = localStorage.getItem(STORAGE_KEY);
+    const storedValue = localStorage.getItem(UPDATE_HOUR_STORAGE_KEY);
     return isValidTime(storedValue) ? storedValue : DEFAULT_UPDATE_HOUR;
   });
 
+  const [streak, setStreak] = useState(() => loadStreak(STREAK_STORAGE_KEY));
   const [currentTime, setCurrentTime] = useState(() => new Date());
 
   const dailyWord = useMemo(() => {
     return getDailyWord(words, updateHour, currentTime);
   }, [updateHour, currentTime]);
 
+  const isWordRevealed = dailyWord ? hasRevealedDate(streak, dailyWord.dateKey) : false;
+
   useEffect(() => {
-    localStorage.setItem(STORAGE_KEY, updateHour);
+    localStorage.setItem(UPDATE_HOUR_STORAGE_KEY, updateHour);
   }, [updateHour]);
+
+  useEffect(() => {
+    saveStreak(STREAK_STORAGE_KEY, streak);
+  }, [streak]);
 
   useEffect(() => {
     const intervalId = window.setInterval(() => {
@@ -35,6 +44,14 @@ export default function App() {
     if (isValidTime(nextValue)) {
       setUpdateHour(nextValue);
     }
+  }
+
+  function handleRevealWord() {
+    if (!dailyWord) {
+      return;
+    }
+
+    setStreak((currentStreak) => revealDailyWord(currentStreak, dailyWord.dateKey));
   }
 
   if (!dailyWord) {
@@ -60,6 +77,23 @@ export default function App() {
         </p>
       </section>
 
+      <section className="streak-card" aria-label="Resumo do streak diário">
+        <div>
+          <span className="streak-label">Sequência atual</span>
+          <strong>{streak.currentStreak} dia{streak.currentStreak === 1 ? "" : "s"}</strong>
+        </div>
+
+        <div>
+          <span className="streak-label">Melhor sequência</span>
+          <strong>{streak.bestStreak} dia{streak.bestStreak === 1 ? "" : "s"}</strong>
+        </div>
+
+        <div>
+          <span className="streak-label">Palavras reveladas</span>
+          <strong>{streak.totalReveals}</strong>
+        </div>
+      </section>
+
       <section className="settings-card" aria-labelledby="settings-title">
         <div>
           <h2 id="settings-title">Configuração</h2>
@@ -81,35 +115,64 @@ export default function App() {
       <section className="word-card" aria-labelledby="daily-word-title">
         <header className="word-header">
           <span>Palavra do dia</span>
-          <h2 id="daily-word-title">{dailyWord.word}</h2>
+
+          {isWordRevealed ? (
+            <h2 id="daily-word-title">{dailyWord.word}</h2>
+          ) : (
+            <div className="hidden-word" id="daily-word-title">
+              Palavra bloqueada
+            </div>
+          )}
         </header>
 
-        <div className="word-content">
-          <article className="word-section">
-            <h3>Significado</h3>
-            <p>{dailyWord.meaning}</p>
-          </article>
+        {isWordRevealed ? (
+          <>
+            <div className="word-content">
+              <article className="word-section">
+                <h3>Significado</h3>
+                <p>{dailyWord.meaning}</p>
+              </article>
 
-          <article className="word-section">
-            <h3>Origem</h3>
-            <p>{dailyWord.origin}</p>
-          </article>
+              <article className="word-section">
+                <h3>Origem</h3>
+                <p>{dailyWord.origin}</p>
+              </article>
 
-          <article className="word-section">
-            <h3>Aplicação em uma frase</h3>
-            <p className="example">"{dailyWord.example}"</p>
-          </article>
-        </div>
+              <article className="word-section">
+                <h3>Aplicação em uma frase</h3>
+                <p className="example">"{dailyWord.example}"</p>
+              </article>
+            </div>
 
-        <footer className="word-footer">
-          <span>
-            Próxima atualização:{" "}
-            {dailyWord.nextUpdate.toLocaleString("pt-BR", {
-              dateStyle: "short",
-              timeStyle: "short"
-            })}
-          </span>
-        </footer>
+            <footer className="word-footer">
+              <span>
+                Próxima atualização:{" "}
+                {dailyWord.nextUpdate.toLocaleString("pt-BR", {
+                  dateStyle: "short",
+                  timeStyle: "short"
+                })}
+              </span>
+            </footer>
+          </>
+        ) : (
+          <div className="reveal-panel">
+            <h3>Pronto para aprender a palavra de hoje?</h3>
+
+            <p>
+              Clique para revelar a palavra do dia. Ao revelar, seu streak diário será
+              atualizado neste navegador.
+            </p>
+
+            <button className="reveal-button" type="button" onClick={handleRevealWord}>
+              Revelar palavra
+            </button>
+
+            <small>
+              A sequência é calculada com base no dia lógico da palavra, respeitando o
+              horário configurado.
+            </small>
+          </div>
+        )}
       </section>
     </main>
   );
